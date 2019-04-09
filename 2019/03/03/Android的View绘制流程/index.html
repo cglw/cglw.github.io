@@ -1,0 +1,1395 @@
+ <!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link rel="stylesheet" href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="概述本篇文章会从源码（基于Android 6.0）角度分析Android中View的绘制流程，侧重于对整体流程的分析，对一些难以理解的点加以重点阐述，目的是把View绘制的整个流程把握好，而对于特定实现细节则可以日后再对相应源码进行研读。在进行实际的分析之前，我们先来看下面这张图：  我们来对上图做出简单解释：DecorView是一个应用窗口的根容器，它本质上是一个FrameLayout。Deco">
+<meta name="keywords" content="n">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android的View绘制流程">
+<meta property="og:url" content="http://lwcg.com/2019/03/03/Android的View绘制流程/index.html">
+<meta property="og:site_name" content="Chen Gang">
+<meta property="og:description" content="概述本篇文章会从源码（基于Android 6.0）角度分析Android中View的绘制流程，侧重于对整体流程的分析，对一些难以理解的点加以重点阐述，目的是把View绘制的整个流程把握好，而对于特定实现细节则可以日后再对相应源码进行研读。在进行实际的分析之前，我们先来看下面这张图：  我们来对上图做出简单解释：DecorView是一个应用窗口的根容器，它本质上是一个FrameLayout。Deco">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/2397836-f1f6a200704884a2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/700">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/2397836-19c08de6439514a7.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/700">
+<meta property="og:updated_time" content="2019-04-09T02:47:58.284Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Android的View绘制流程">
+<meta name="twitter:description" content="概述本篇文章会从源码（基于Android 6.0）角度分析Android中View的绘制流程，侧重于对整体流程的分析，对一些难以理解的点加以重点阐述，目的是把View绘制的整个流程把握好，而对于特定实现细节则可以日后再对相应源码进行研读。在进行实际的分析之前，我们先来看下面这张图：  我们来对上图做出简单解释：DecorView是一个应用窗口的根容器，它本质上是一个FrameLayout。Deco">
+<meta name="twitter:image" content="https://upload-images.jianshu.io/upload_images/2397836-f1f6a200704884a2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/700">
+
+
+
+
+
+
+  <link rel="canonical" href="http://lwcg.com/2019/03/03/Android的View绘制流程/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>Android的View绘制流程 | Chen Gang</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <a href="https://github.com/cglw" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chen Gang</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <p class="site-subtitle">Welcome cg's blog</p>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://lwcg.com/2019/03/03/Android的View绘制流程/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Chen Gang">
+      <meta itemprop="description" content="I am g happy boy">
+      <meta itemprop="image" content="http://img2.imgtn.bdimg.com/it/u=3377302992,3361149372&fm=26&gp=0.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chen Gang">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Android的View绘制流程
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2019-03-03 10:47:26" itemprop="dateCreated datePublished" datetime="2019-03-03T10:47:26+08:00">2019-03-03</time>
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Android/" itemprop="url" rel="index"><span itemprop="name">Android</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+              
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <a href="/2019/03/03/Android的View绘制流程/#comments" itemprop="discussionUrl">
+                  <span class="post-meta-item-text">评论数：</span> <span class="post-comments-count valine-comment-count" data-xid="/2019/03/03/Android的View绘制流程/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">27k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">25 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>概述<br>本篇文章会从源码（基于Android 6.0）角度分析Android中View的绘制流程，侧重于对整体流程的分析，对一些难以理解的点加以重点阐述，目的是把View绘制的整个流程把握好，而对于特定实现细节则可以日后再对相应源码进行研读。<br>在进行实际的分析之前，我们先来看下面这张图：</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/2397836-f1f6a200704884a2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/700" alt="image"></p>
+<p>我们来对上图做出简单解释：DecorView是一个应用窗口的根容器，它本质上是一个FrameLayout。DecorView有唯一一个子View，它是一个垂直LinearLayout，包含两个子元素，一个是TitleView（ActionBar的容器），另一个是ContentView（窗口内容的容器）。关于ContentView，它是一个FrameLayout（android.R.id.content)，我们平常用的setContentView就是设置它的子View。上图还表达了每个Activity都与一个Window（具体来说是PhoneWindow）相关联，用户界面则由Window所承载。</p>
+<h1 id="Window"><a href="#Window" class="headerlink" title="Window"></a>Window</h1><p>Window即窗口，这个概念在Android Framework中的实现为android.view.Window这个抽象类，这个抽象类是对Android系统中的窗口的抽象。在介绍这个类之前，我们先来看看究竟什么是窗口呢？</p>
+<p>实际上，窗口是一个宏观的思想，它是屏幕上用于绘制各种UI元素及响应用户输入事件的一个矩形区域。通常具备以下两个特点：</p>
+<p>独立绘制，不与其它界面相互影响；<br>不会触发其它界面的输入事件；<br>在Android系统中，窗口是独占一个Surface实例的显示区域，每个窗口的Surface由WindowManagerService分配。我们可以把Surface看作一块画布，应用可以通过Canvas或OpenGL在其上面作画。画好之后，通过SurfaceFlinger将多块Surface按照特定的顺序（即Z-order）进行混合，而后输出到FrameBuffer中，这样用户界面就得以显示。</p>
+<p>android.view.Window这个抽象类可以看做Android中对窗口这一宏观概念所做的约定，而PhoneWindow这个类是Framework为我们提供的Android窗口概念的具体实现。接下来我们先来介绍一下android.view.Window这个抽象类。</p>
+<p>这个抽象类包含了三个核心组件：</p>
+<p>WindowManager.LayoutParams: 窗口的布局参数；<br>Callback: 窗口的回调接口，通常由Activity实现；<br>ViewTree: 窗口所承载的控件树。<br>下面我们来看一下Android中Window的具体实现（也是唯一实现）——PhoneWindow。</p>
+<h1 id="PhoneWindow"><a href="#PhoneWindow" class="headerlink" title="PhoneWindow"></a>PhoneWindow</h1><p>前面我们提到了，PhoneWindow这个类是Framework为我们提供的Android窗口的具体实现。我们平时调用setContentView()方法设置Activity的用户界面时，实际上就完成了对所关联的PhoneWindow的ViewTree的设置。我们还可以通过Activity类的requestWindowFeature()方法来定制Activity关联PhoneWindow的外观，这个方法实际上做的是把我们所请求的窗口外观特性存储到了PhoneWindow的mFeatures成员中，在窗口绘制阶段生成外观模板时，会根据mFeatures的值绘制特定外观。</p>
+<h1 id="从setContentView-说开去"><a href="#从setContentView-说开去" class="headerlink" title="从setContentView()说开去"></a>从setContentView()说开去</h1><p>在分析setContentView()方法前，我们需要明确：这个方法只是完成了Activity的ContentView的创建，而并没有执行View的绘制流程。<br>当我们自定义Activity继承自android.app.Activity时候，调用的setContentView()方法是Activity类的，源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">public void setContentView(@LayoutRes int layoutResID) &#123;    </span><br><span class="line">  getWindow().setContentView(layoutResID);    </span><br><span class="line">  . . .</span><br><span class="line">&#125;</span><br><span class="line">getWindow()方法会返回Activity所关联的PhoneWindow，也就是说，实际上调用到了PhoneWindow的setContentView()方法，源码如下：</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public void setContentView(int layoutResID) &#123;</span><br><span class="line">  if (mContentParent == null) &#123;</span><br><span class="line">    // mContentParent即为上面提到的ContentView的父容器，若为空则调用installDecor()生成</span><br><span class="line">    installDecor();</span><br><span class="line">  &#125; else if (!hasFeature(FEATURE_CONTENT_TRANSITIONS)) &#123;</span><br><span class="line">    // 具有FEATURE_CONTENT_TRANSITIONS特性表示开启了Transition</span><br><span class="line">    // mContentParent不为null，则移除decorView的所有子View</span><br><span class="line">    mContentParent.removeAllViews();</span><br><span class="line">  &#125;</span><br><span class="line">  if (hasFeature(FEATURE_CONTENT_TRANSITIONS)) &#123;</span><br><span class="line">    // 开启了Transition，做相应的处理，我们不讨论这种情况</span><br><span class="line">    // 感兴趣的同学可以参考源码</span><br><span class="line">    . . .</span><br><span class="line">  &#125; else &#123;</span><br><span class="line">    // 一般情况会来到这里，调用mLayoutInflater.inflate()方法来填充布局</span><br><span class="line">    // 填充布局也就是把我们设置的ContentView加入到mContentParent中</span><br><span class="line">    mLayoutInflater.inflate(layoutResID, mContentParent);</span><br><span class="line">  &#125;</span><br><span class="line">  . . .</span><br><span class="line">  // cb即为该Window所关联的Activity</span><br><span class="line">  final Callback cb = getCallback();</span><br><span class="line">  if (cb != null &amp;&amp; !isDestroyed()) &#123;</span><br><span class="line">    // 调用onContentChanged()回调方法通知Activity窗口内容发生了改变</span><br><span class="line">    cb.onContentChanged();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  . . .</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h1 id="LayoutInflater-inflate"><a href="#LayoutInflater-inflate" class="headerlink" title="LayoutInflater.inflate()"></a>LayoutInflater.inflate()</h1><p>在上面我们看到了，PhoneWindow的setContentView()方法中调用了LayoutInflater的inflate()方法来填充布局，这个方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">public View inflate(@LayoutRes int resource, @Nullable ViewGroup root) &#123;</span><br><span class="line">  return inflate(resource, root, root != null);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">public View inflate(@LayoutRes int resource, @Nullable ViewGroup root, boolean attachToRoot) &#123;</span><br><span class="line">  final Resources res = getContext().getResources();</span><br><span class="line">  . . .</span><br><span class="line">  final XmlResourceParser parser = res.getLayout(resource);</span><br><span class="line">  try &#123;</span><br><span class="line">    return inflate(parser, root, attachToRoot);</span><br><span class="line">  &#125; finally &#123;</span><br><span class="line">    parser.close();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>在PhoneWindow的setContentView()方法中传入了decorView作为LayoutInflater.inflate()的root参数，我们可以看到，通过层层调用，最终调用的是inflate(XmlPullParser, ViewGroup, boolean)方法来填充布局。这个方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br></pre></td><td class="code"><pre><span class="line">public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean attachToRoot) &#123;</span><br><span class="line">  synchronized (mConstructorArgs) &#123;</span><br><span class="line">    . . .</span><br><span class="line">    final Context inflaterContext = mContext;</span><br><span class="line">    final AttributeSet attrs = Xml.asAttributeSet(parser);</span><br><span class="line">    Context lastContext = (Context) mConstructorArgs[0];</span><br><span class="line">    mConstructorArgs[0] = inflaterContext;</span><br><span class="line"></span><br><span class="line">    View result = root;</span><br><span class="line"></span><br><span class="line">    try &#123;</span><br><span class="line">      // Look for the root node.</span><br><span class="line">      int type;</span><br><span class="line">      // 一直读取xml文件，直到遇到开始标记</span><br><span class="line">      while ((type = parser.next()) != XmlPullParser.START_TAG &amp;&amp;</span><br><span class="line">          type != XmlPullParser.END_DOCUMENT) &#123;</span><br><span class="line">        // Empty</span><br><span class="line">       &#125;</span><br><span class="line">      // 最先遇到的不是开始标记，报错</span><br><span class="line">      if (type != XmlPullParser.START_TAG) &#123;</span><br><span class="line">        throw new InflateException(parser.getPositionDescription()</span><br><span class="line">+ &quot;: No start tag found!&quot;);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      final String name = parser.getName();</span><br><span class="line">      . . .</span><br><span class="line">      // 单独处理&lt;merge&gt;标签，不熟悉的同学请参考官方文档的说明</span><br><span class="line">      if (TAG_MERGE.equals(name)) &#123;</span><br><span class="line">        // 若包含&lt;merge&gt;标签，父容器（即root参数）不可为空且attachRoot须为true，否则报错</span><br><span class="line">        if (root == null || !attachToRoot) &#123;</span><br><span class="line">          throw new InflateException(&quot;&lt;merge /&gt; can be used only with a valid &quot;</span><br><span class="line">+ &quot;ViewGroup root and attachToRoot=true&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        // 递归地填充布局</span><br><span class="line">        rInflate(parser, root, inflaterContext, attrs, false);</span><br><span class="line">     &#125; else &#123;</span><br><span class="line">        // temp为xml布局文件的根View</span><br><span class="line">        final View temp = createViewFromTag(root, name, inflaterContext, attrs); </span><br><span class="line">        ViewGroup.LayoutParams params = null;</span><br><span class="line">        if (root != null) &#123;</span><br><span class="line">          . . .</span><br><span class="line">          // 获取父容器的布局参数（LayoutParams）</span><br><span class="line">          params = root.generateLayoutParams(attrs);</span><br><span class="line">          if (!attachToRoot) &#123;</span><br><span class="line">            // 若attachToRoot参数为false，则我们只会将父容器的布局参数设置给根View</span><br><span class="line">            temp.setLayoutParams(params);</span><br><span class="line">          &#125;</span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        // 递归加载根View的所有子View</span><br><span class="line">        rInflateChildren(parser, temp, attrs, true);</span><br><span class="line">        . . .</span><br><span class="line"></span><br><span class="line">        if (root != null &amp;&amp; attachToRoot) &#123;</span><br><span class="line">          // 若父容器不为空且attachToRoot为true，则将父容器作为根View的父View包裹上来</span><br><span class="line">          root.addView(temp, params);</span><br><span class="line">        &#125;</span><br><span class="line">      </span><br><span class="line">        // 若root为空或是attachToRoot为false，则以根View作为返回值</span><br><span class="line">        if (root == null || !attachToRoot) &#123;</span><br><span class="line">           result = temp;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">    &#125; catch (XmlPullParserException e) &#123;</span><br><span class="line">      . . . </span><br><span class="line">    &#125; catch (Exception e) &#123;</span><br><span class="line">      . . . </span><br><span class="line">    &#125; finally &#123;</span><br><span class="line"></span><br><span class="line">      . . .</span><br><span class="line">    &#125;</span><br><span class="line">    return result;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>在上面的源码中，首先对于布局文件中的<merge>标签进行单独处理，调用rInflate()方法来递归填充布局。这个方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">void rInflate(XmlPullParser parser, View parent, Context context,</span><br><span class="line">    AttributeSet attrs, boolean finishInflate) throws XmlPullParserException, IOException &#123;</span><br><span class="line">    // 获取当前标记的深度，根标记的深度为0</span><br><span class="line">    final int depth = parser.getDepth();</span><br><span class="line">    int type;</span><br><span class="line">    while (((type = parser.next()) != XmlPullParser.END_TAG ||</span><br><span class="line">        parser.getDepth() &gt; depth) &amp;&amp; type != XmlPullParser.END_DOCUMENT) &#123;</span><br><span class="line">      // 不是开始标记则继续下一次迭代</span><br><span class="line">      if (type != XmlPullParser.START_TAG) &#123;</span><br><span class="line">        continue;</span><br><span class="line">      &#125;</span><br><span class="line">      final String name = parser.getName();</span><br><span class="line">      // 对一些特殊标记做单独处理</span><br><span class="line">      if (TAG_REQUEST_FOCUS.equals(name)) &#123;</span><br><span class="line">        parseRequestFocus(parser, parent);</span><br><span class="line">      &#125; else if (TAG_TAG.equals(name)) &#123;</span><br><span class="line">        parseViewTag(parser, parent, attrs);</span><br><span class="line">      &#125; else if (TAG_INCLUDE.equals(name)) &#123;</span><br><span class="line">        if (parser.getDepth() == 0) &#123;</span><br><span class="line">          throw new InflateException(&quot;&lt;include /&gt; cannot be the root element&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">        // 对&lt;include&gt;做处理</span><br><span class="line">        parseInclude(parser, context, parent, attrs);</span><br><span class="line">      &#125; else if (TAG_MERGE.equals(name)) &#123;</span><br><span class="line">        throw new InflateException(&quot;&lt;merge /&gt; must be the root element&quot;);</span><br><span class="line">      &#125; else &#123;</span><br><span class="line">        // 对一般标记的处理</span><br><span class="line">        final View view = createViewFromTag(parent, name, context, attrs);</span><br><span class="line">        final ViewGroup viewGroup = (ViewGroup) parent;</span><br><span class="line">        final ViewGroup.LayoutParams params=viewGroup.generateLayoutParams(attrs);</span><br><span class="line">        // 递归地加载子View</span><br><span class="line">        rInflateChildren(parser, view, attrs, true);</span><br><span class="line">        viewGroup.addView(view, params);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    if (finishInflate) &#123;</span><br><span class="line">        parent.onFinishInflate();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></merge></p>
+<p>我们可以看到，上面的inflate()和rInflate()方法中都调用了rInflateChildren()方法，这个方法的源码如下：</p>
+<p>final void rInflateChildren(XmlPullParser parser, View parent, AttributeSet attrs, boolean finishInflate) throws XmlPullParserException, IOException {<br>    rInflate(parser, parent, parent.getContext(), attrs, finishInflate);<br>}<br>从源码中我们可以知道，rInflateChildren()方法实际上调用了rInflate()方法。</p>
+<p>到这里，setContentView()的整体执行流程我们就分析完了，至此我们已经完成了Activity的ContentView的创建与设置工作。接下来，我们开始进入正题，分析View的绘制流程。</p>
+<h1 id="ViewRootImpl"><a href="#ViewRootImpl" class="headerlink" title="ViewRootImpl"></a>ViewRootImpl</h1><p>在介绍View的绘制前，首先我们需要知道是谁负责执行View绘制的整个流程。实际上，View的绘制是由ViewRoot来负责的。每个应用程序窗口的decorView都有一个与之关联的ViewRoot对象，这种关联关系是由WindowManager来维护的。</p>
+<p>那么decorView与ViewRoot的关联关系是在什么时候建立的呢？答案是Activity启动时，ActivityThread.handleResumeActivity()方法中建立了它们两者的关联关系。这里我们不具体分析它们建立关联的时机与方式，感兴趣的同学可以参考相关源码。下面我们直入主题，分析一下ViewRoot是如何完成View的绘制的。</p>
+<h1 id="View绘制的起点"><a href="#View绘制的起点" class="headerlink" title="View绘制的起点"></a>View绘制的起点</h1><p>当建立好了decorView与ViewRoot的关联后，ViewRoot类的requestLayout()方法会被调用，以完成应用程序用户界面的初次布局。实际被调用的是ViewRootImpl类的requestLayout()方法，这个方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">public void requestLayout() &#123;</span><br><span class="line">  if (!mHandlingLayoutInLayoutRequest) &#123;</span><br><span class="line">    // 检查发起布局请求的线程是否为主线程  </span><br><span class="line">    checkThread();</span><br><span class="line">    mLayoutRequested = true;</span><br><span class="line">    scheduleTraversals();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上面的方法中调用了scheduleTraversals()方法来调度一次完成的绘制流程，该方法会向主线程发送一个“遍历”消息，最终会导致ViewRootImpl的performTraversals()方法被调用。下面，我们以performTraversals()为起点，来分析View的整个绘制流程。</p>
+<h1 id="三个阶段"><a href="#三个阶段" class="headerlink" title="三个阶段"></a>三个阶段</h1><p>View的整个绘制流程可以分为以下三个阶段：</p>
+<p>measure: 判断是否需要重新计算View的大小，需要的话则计算；<br>layout: 判断是否需要重新计算View的位置，需要的话则计算；<br>draw: 判断是否需要重新绘制View，需要的话则重绘制。<br>这三个子阶段可以用下图来描述：<br><img src="https://upload-images.jianshu.io/upload_images/2397836-19c08de6439514a7.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/700" alt="image"><br>measure阶段<br>此阶段的目的是计算出控件树中的各个控件要显示其内容的话，需要多大尺寸。起点是ViewRootImpl的measureHierarchy()方法，这个方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">private boolean measureHierarchy(final View host, final WindowManager.LayoutParams lp, final Resources res, </span><br><span class="line">    final int desiredWindowWidth, final int desiredWindowHeight) &#123;</span><br><span class="line">  // 传入的desiredWindowXxx为窗口尺寸</span><br><span class="line">  int childWidthMeasureSpec;</span><br><span class="line">  int childHeightMeasureSpec;</span><br><span class="line">  boolean windowSizeMayChange = false;</span><br><span class="line">  . . .</span><br><span class="line">  boolean goodMeasure = false;</span><br><span class="line"></span><br><span class="line">  if (!goodMeasure) &#123;</span><br><span class="line">    childWidthMeasureSpec = getRootMeasureSpec(desiredWindowWidth, lp.width);</span><br><span class="line">    childHeightMeasureSpec = getRootMeasureSpec(desiredWindowHeight, lp.height);</span><br><span class="line">    performMeasure(childWidthMeasureSpec, childHeightMeasureSpec);</span><br><span class="line"></span><br><span class="line">    if (mWidth != host.getMeasuredWidth() || mHeight != host.getMeasuredHeight()) &#123;</span><br><span class="line">      windowSizeMayChange = true;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  return windowSizeMayChange;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上面的代码中调用getRootMeasureSpec()方法来获取根MeasureSpec，这个根MeasureSpec代表了对decorView的宽高的约束信息。继续分析之前，我们先来简单地介绍下MeasureSpec的概念。<br>MeasureSpec是一个32位整数，由SpecMode和SpecSize两部分组成，其中，高2位为SpecMode，低30位为SpecSize。SpecMode为测量模式，SpecSize为相应测量模式下的测量尺寸。View（包括普通View和ViewGroup）的SpecMode由本View的LayoutParams结合父View的MeasureSpec生成。<br>SpecMode的取值可为以下三种：</p>
+<p>EXACTLY: 对子View提出了一个确切的建议尺寸（SpecSize）；<br>AT_MOST: 子View的大小不得超过SpecSize；<br>UNSPECIFIED: 对子View的尺寸不作限制，通常用于系统内部。<br>传入performMeasure()方法的MeasureSpec的SpecMode为EXACTLY，SpecSize为窗口尺寸。<br>performMeasure()方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">private void performMeasure(int childWidthMeasureSpec, int childHeightMeasureSpec) &#123;</span><br><span class="line">  . . .</span><br><span class="line">  try &#123; </span><br><span class="line">    mView.measure(childWidthMeasureSpec, childHeightMeasureSpec);</span><br><span class="line">  &#125; finally &#123;</span><br><span class="line">    . . .</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上面代码中的mView即为decorView，也就是说会转向对View.measure()方法的调用，这个方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">/**</span><br><span class="line"> * 调用这个方法来算出一个View应该为多大。参数为父View对其宽高的约束信息。</span><br><span class="line"> * 实际的测量工作在onMeasure()方法中进行</span><br><span class="line"> */</span><br><span class="line">public final void measure(int widthMeasureSpec, int heightMeasureSpec) &#123;</span><br><span class="line">  . . . </span><br><span class="line">  // 判断是否需要重新布局</span><br><span class="line"></span><br><span class="line">  // 若mPrivateFlags中包含PFLAG_FORCE_LAYOUT标记，则强制重新布局</span><br><span class="line">  // 比如调用View.requestLayout()会在mPrivateFlags中加入此标记</span><br><span class="line">  final boolean forceLayout = (mPrivateFlags &amp; PFLAG_FORCE_LAYOUT) == PFLAG_FORCE_LAYOUT;</span><br><span class="line">  final boolean specChanged = widthMeasureSpec != mOldWidthMeasureSpec</span><br><span class="line">      || heightMeasureSpec != mOldHeightMeasureSpec;</span><br><span class="line">  final boolean isSpecExactly = MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY</span><br><span class="line">      &amp;&amp; MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY;</span><br><span class="line">  final boolean matchesSpecSize = getMeasuredWidth() == MeasureSpec.getSize(widthMeasureSpec)</span><br><span class="line">      &amp;&amp; getMeasuredHeight() == MeasureSpec.getSize(heightMeasureSpec);</span><br><span class="line">  final boolean needsLayout = specChanged</span><br><span class="line">      &amp;&amp; (sAlwaysRemeasureExactly || !isSpecExactly || !matchesSpecSize);</span><br><span class="line"></span><br><span class="line">  // 需要重新布局  </span><br><span class="line">  if (forceLayout || needsLayout) &#123;</span><br><span class="line">    . . .</span><br><span class="line">    // 先尝试从缓从中获取，若forceLayout为true或是缓存中不存在或是</span><br><span class="line">    // 忽略缓存，则调用onMeasure()重新进行测量工作</span><br><span class="line">    int cacheIndex = forceLayout ? -1 : mMeasureCache.indexOfKey(key);</span><br><span class="line">    if (cacheIndex &lt; 0 || sIgnoreMeasureCache) &#123;</span><br><span class="line">      // measure ourselves, this should set the measured dimension flag back</span><br><span class="line">      onMeasure(widthMeasureSpec, heightMeasureSpec);</span><br><span class="line">      . . .</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">      // 缓存命中，直接从缓存中取值即可，不必再测量</span><br><span class="line">      long value = mMeasureCache.valueAt(cacheIndex);</span><br><span class="line">      // Casting a long to int drops the high 32 bits, no mask needed</span><br><span class="line">      setMeasuredDimensionRaw((int) (value &gt;&gt; 32), (int) value);</span><br><span class="line">      . . .</span><br><span class="line">    &#125;</span><br><span class="line">    . . .</span><br><span class="line">  &#125;</span><br><span class="line">  mOldWidthMeasureSpec = widthMeasureSpec;</span><br><span class="line">  mOldHeightMeasureSpec = heightMeasureSpec;</span><br><span class="line">  mMeasureCache.put(key, ((long) mMeasuredWidth) &lt;&lt; 32 |</span><br><span class="line">      (long) mMeasuredHeight &amp; 0xffffffffL); // suppress sign extension</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>从measure()方法的源码中我们可以知道，只有以下两种情况之一，才会进行实际的测量工作：</p>
+<p>forceLayout为true：这表示强制重新布局，可以通过View.requestLayout()来实现；<br>needsLayout为true，这需要specChanged为true（表示本次传入的MeasureSpec与上次传入的不同），并且以下三个条件之一成立：<br>sAlwaysRemeasureExactly为true: 该变量默认为false；<br>isSpecExactly为false: 若父View对子View提出了精确的宽高约束，则该变量为true，否则为false<br>matchesSpecSize为false: 表示父View的宽高尺寸要求与上次测量的结果不同<br>对于decorView来说，实际执行测量工作的是FrameLayout的onMeasure()方法，该方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) &#123;</span><br><span class="line">  int count = getChildCount();</span><br><span class="line">  . . .</span><br><span class="line">  int maxHeight = 0;</span><br><span class="line">  int maxWidth = 0;</span><br><span class="line"></span><br><span class="line">  int childState = 0;</span><br><span class="line">  for (int i = 0; i &lt; count; i++) &#123;</span><br><span class="line">    final View child = getChildAt(i);</span><br><span class="line">    if (mMeasureAllChildren || child.getVisibility() != GONE) &#123;</span><br><span class="line">      measureChildWithMargins(child, widthMeasureSpec, 0, heightMeasureSpec, 0);</span><br><span class="line">      final LayoutParams lp = (LayoutParams) child.getLayoutParams();</span><br><span class="line">      maxWidth = Math.max(maxWidth,</span><br><span class="line">          child.getMeasuredWidth() + lp.leftMargin + lp.rightMargin);</span><br><span class="line">      maxHeight = Math.max(maxHeight,</span><br><span class="line">          child.getMeasuredHeight() + lp.topMargin + lp.bottomMargin);</span><br><span class="line">      childState = combineMeasuredStates(childState, child.getMeasuredState());</span><br><span class="line"></span><br><span class="line">      . . .</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  // Account for padding too</span><br><span class="line">  maxWidth += getPaddingLeftWithForeground() + getPaddingRightWithForeground();</span><br><span class="line">  maxHeight += getPaddingTopWithForeground() + getPaddingBottomWithForeground();</span><br><span class="line"></span><br><span class="line">  // Check against our minimum height and width</span><br><span class="line">  maxHeight = Math.max(maxHeight, getSuggestedMinimumHeight());</span><br><span class="line">  maxWidth = Math.max(maxWidth, getSuggestedMinimumWidth());</span><br><span class="line"></span><br><span class="line">  // Check against our foreground&apos;s minimum height and width</span><br><span class="line">  final Drawable drawable = getForeground();</span><br><span class="line">  if (drawable != null) &#123;</span><br><span class="line">    maxHeight = Math.max(maxHeight, drawable.getMinimumHeight());</span><br><span class="line">    maxWidth = Math.max(maxWidth, drawable.getMinimumWidth());</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  setMeasuredDimension(resolveSizeAndState(maxWidth, widthMeasureSpec, childState),</span><br><span class="line">        resolveSizeAndState(maxHeight, heightMeasureSpec,</span><br><span class="line">        childState &lt;&lt; MEASURED_HEIGHT_STATE_SHIFT));</span><br><span class="line">  . . . </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>FrameLayout是ViewGroup的子类，后者有一个View[]类型的成员变量mChildren，代表了其子View集合。通过getChildAt(i)能获取指定索引处的子View，通过getChildCount()可以获得子View的总数。</p>
+<p>在上面的源码中，首先调用measureChildWithMargins()方法对所有子View进行了一遍测量，并计算出所有子View的最大宽度和最大高度。而后将得到的最大高度和宽度加上padding，这里的padding包括了父View的padding和前景区域的padding。然后会检查是否设置了最小宽高，并与其比较，将两者中较大的设为最终的最大宽高。最后，若设置了前景图像，我们还要检查前景图像的最小宽高。</p>
+<p>经过了以上一系列步骤后，我们就得到了maxHeight和maxWidth的最终值，表示当前容器View用这个尺寸就能够正常显示其所有子View（同时考虑了padding和margin）。而后我们需要调用resolveSizeAndState()方法来结合传来的MeasureSpec来获取最终的测量宽高，并保存到mMeasuredWidth与mMeasuredHeight成员变量中。</p>
+<p>从以上代码的执行流程中，我们可以看到，容器View通过measureChildWithMargins()方法对所有子View进行测量后，才能得到自身的测量结果。也就是说，对于ViewGroup及其子类来说，要先完成子View的测量，再进行自身的测量（考虑进padding等）。<br>接下来我们来看下ViewGroup的measureChildWithMargins()方法的实现：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">protected void measureChildWithMargins(View child,</span><br><span class="line">  int parentWidthMeasureSpec, int widthUsed,</span><br><span class="line">  int parentHeightMeasureSpec, int heightUsed) &#123;</span><br><span class="line">  final MarginLayoutParams lp = (MarginLayoutParams) child.getLayoutParams();</span><br><span class="line">  final int childWidthMeasureSpec = getChildMeasureSpec(parentWidthMeasureSpec,</span><br><span class="line">      mPaddingLeft + mPaddingRight + lp.leftMargin + lp.rightMargin + widthUsed, lp.width);</span><br><span class="line">  final int childHeightMeasureSpec = getChildMeasureSpec(parentHeightMeasureSpec</span><br><span class="line">      mPaddingTop + mPaddingBottom + lp.topMargin + lp.bottomMargin + heightUsed, lp.height);</span><br><span class="line"></span><br><span class="line">  child.measure(childWidthMeasureSpec, childHeightMeasureSpec);</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>由以上代码我们可以知道，对于ViewGroup来说，它会调用child.measure()来完成子View的测量。传入ViewGroup的MeasureSpec是它的父View用于约束其测量的，那么ViewGroup本身也需要生成一个childMeasureSpec来限制它的子View的测量工作。这个childMeasureSpec就由getChildMeasureSpec()方法生成。接下来我们来分析这个方法：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line">public static int getChildMeasureSpec(int spec, int padding, int childDimension) &#123;</span><br><span class="line">  // spec为父View的MeasureSpec</span><br><span class="line">  // padding为父View在相应方向的已用尺寸加上父View的padding和子View的margin</span><br><span class="line">  // childDimension为子View的LayoutParams的值</span><br><span class="line">  int specMode = MeasureSpec.getMode(spec);</span><br><span class="line">  int specSize = MeasureSpec.getSize(spec);</span><br><span class="line"></span><br><span class="line">  // 现在size的值为父View相应方向上的可用大小</span><br><span class="line">  int size = Math.max(0, specSize - padding);</span><br><span class="line"></span><br><span class="line">  int resultSize = 0;</span><br><span class="line">  int resultMode = 0;</span><br><span class="line"></span><br><span class="line">  switch (specMode) &#123;</span><br><span class="line">    // Parent has imposed an exact size on us</span><br><span class="line">    case MeasureSpec.EXACTLY:</span><br><span class="line">      if (childDimension &gt;= 0) &#123;</span><br><span class="line">        // 表示子View的LayoutParams指定了具体大小值（xx dp）</span><br><span class="line">        resultSize = childDimension;</span><br><span class="line">        resultMode = MeasureSpec.EXACTLY;</span><br><span class="line">      &#125; else if (childDimension == LayoutParams.MATCH_PARENT) &#123;</span><br><span class="line">        // 子View想和父View一样大</span><br><span class="line">        resultSize = size;</span><br><span class="line">        resultMode = MeasureSpec.EXACTLY;</span><br><span class="line">      &#125; else if (childDimension == LayoutParams.WRAP_CONTENT) &#123;</span><br><span class="line">        // 子View想自己决定其尺寸，但不能比父View大 </span><br><span class="line">        resultSize = size;</span><br><span class="line">        resultMode = MeasureSpec.AT_MOST;</span><br><span class="line">      &#125;</span><br><span class="line">      break;</span><br><span class="line"></span><br><span class="line">    // Parent has imposed a maximum size on us</span><br><span class="line">    case MeasureSpec.AT_MOST:</span><br><span class="line">      if (childDimension &gt;= 0) &#123;</span><br><span class="line">        // 子View指定了具体大小</span><br><span class="line">        resultSize = childDimension;</span><br><span class="line">        resultMode = MeasureSpec.EXACTLY;</span><br><span class="line">      &#125; else if (childDimension == LayoutParams.MATCH_PARENT) &#123;</span><br><span class="line">        // 子View想跟父View一样大，但是父View的大小未固定下来</span><br><span class="line">        // 所以指定约束子View不能比父View大</span><br><span class="line">        resultSize = size;</span><br><span class="line">        resultMode = MeasureSpec.AT_MOST;</span><br><span class="line">      &#125; else if (childDimension == LayoutParams.WRAP_CONTENT) &#123;</span><br><span class="line">        // 子View想要自己决定尺寸，但不能比父View大</span><br><span class="line">        resultSize = size;</span><br><span class="line">        resultMode = MeasureSpec.AT_MOST;</span><br><span class="line">      &#125;</span><br><span class="line">      break;</span><br><span class="line"></span><br><span class="line">      . . .</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  //noinspection ResourceType</span><br><span class="line">  return MeasureSpec.makeMeasureSpec(resultSize, resultMode);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上面的方法展现了根据父View的MeasureSpec和子View的LayoutParams生成子View的MeasureSpec的过程，<strong> 子View的LayoutParams表示了子View的期待大小</strong>。这个产生的MeasureSpec用于指导子View自身的测量结果的确定。<br>在上面的代码中，我们可以看到当ParentMeasureSpec的SpecMode为EXACTLY时，表示父View对子View指定了确切的宽高限制。此时根据子View的LayoutParams的不同，分以下三种情况：</p>
+<p>具体大小（childDimension）：这种情况下令子View的SpecSize为childDimension，即子View在LayoutParams指定的具体大小值；令子View的SpecMode为EXACTLY，即这种情况下若该子View为容器View，它也有能力给其子View指定确切的宽高限制（子View只能在这个宽高范围内），若为普通View，它的最终测量大小就为childDimension。<br>match_parent：此时表示子View想和父View一样大。这种情况下得到的子View的SpecMode与上种情况相同，只不过SpecSize为size，即父View的剩余可用大小。<br>wrap_content: 这表示了子View想自己决定自己的尺寸（根据其内容的大小动态决定）。这种情况下子View的确切测量大小只能在其本身的onMeasure()方法中计算得出，父View此时无从知晓。所以暂时将子View的SpecSize设为size（父View的剩余大小）；令子View的SpecMode为AT_MOST，表示了若子View为ViewGroup，它没有能力给其子View指定确切的宽高限制，毕竟它本身的测量宽高还悬而未定。<br>当ParentMeasureSpec的SpecMode为AT_MOST时，我们也可以根据子View的LayoutParams的不同来分三种情况讨论：</p>
+<p>具体大小：这时令子View的SpecSize为childDimension，SpecMode为EXACTLY。<br>match_parent：表示子View想和父View一样大，故令子View的SpecSize为size，但是由于父View本身的测量宽高还无从确定，所以只是暂时令子View的测量结果为父View目前的可用大小。这时令子View的SpecMode为AT_MOST。<br>wrap_content：表示子View想自己决定大小（根据其内容动态确定）。然而这时父View还无法确定其自身的测量宽高，所以暂时令子View的SpecSize为size，SpecMode为AT_MOST。<br>从上面的分析我们可以得到一个通用的结论，当子View的测量结果能够确定时，子View的SpecMode就为EXACTLY；当子View的测量结果还不能确定（只是暂时设为某个值）时，子View的SpecMode为AT_MOST。<br>在measureChildWithMargins()方法中，获取了知道子View测量的MeasureSpec后，接下来就要调用child.measure()方法，并把获取到的childMeasureSpec传入。这时便又会调用onMeasure()方法，若此时的子View为ViewGroup的子类，便会调用相应容器类的onMeasure()方法，其他容器View的onMeasure()方法与FrameLayout的onMeasure()方法执行过程相似。</p>
+<p>下面会我们回到FrameLayout的onMeasure()方法，当递归地执行完所有子View的测量工作后，会调用resolveSizeAndState()方法来根据之前的测量结果确定最终对FrameLayout的测量结果并存储起来。View类的resolveSizeAndState()方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">public static int resolveSizeAndState(int size, int measureSpec, int childMeasuredState) &#123;</span><br><span class="line">  final int specMode = MeasureSpec.getMode(measureSpec);</span><br><span class="line">  final int specSize = MeasureSpec.getSize(measureSpec);</span><br><span class="line">  final int result;</span><br><span class="line">  switch (specMode) &#123;</span><br><span class="line">    case MeasureSpec.AT_MOST:</span><br><span class="line">      if (specSize &lt; size) &#123;</span><br><span class="line">        // 父View给定的最大尺寸小于完全显示内容所需尺寸</span><br><span class="line">        // 则在测量结果上加上MEASURED_STATE_TOO_SMALL</span><br><span class="line">        result = specSize | MEASURED_STATE_TOO_SMALL;</span><br><span class="line">      &#125; else &#123;</span><br><span class="line">       result = size;</span><br><span class="line">      &#125;</span><br><span class="line">      break;</span><br><span class="line"></span><br><span class="line">    case MeasureSpec.EXACTLY:</span><br><span class="line">      // 若specMode为EXACTLY，则不考虑size，result直接赋值为specSize</span><br><span class="line">      result = specSize;</span><br><span class="line">      break;</span><br><span class="line"></span><br><span class="line">    case MeasureSpec.UNSPECIFIED:</span><br><span class="line">    default:</span><br><span class="line">      result = size;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  return result | (childMeasuredState &amp; MEASURED_STATE_MASK);</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>对于普通View，会调用View类的onMeasure()方法来进行实际的测量工作，该方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) &#123;</span><br><span class="line">    setMeasuredDimension(getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec),</span><br><span class="line">        getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>对于普通View（非ViewgGroup）来说，只需完成自身的测量工作即可。以上代码中通过setMeasuredDimension()方法设置测量的结果，具体来说是以getDefaultSize()方法的返回值来作为测量结果。getDefaultSize()方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">public static int getDefaultSize(int size, int measureSpec) &#123;</span><br><span class="line">  int result = size;</span><br><span class="line">  int specMode = MeasureSpec.getMode(measureSpec);</span><br><span class="line">  int specSize = MeasureSpec.getSize(measureSpec);</span><br><span class="line">  switch (specMode) &#123;</span><br><span class="line">    case MeasureSpec.UNSPECIFIED:</span><br><span class="line">      result = size;</span><br><span class="line">      break;</span><br><span class="line">    case MeasureSpec.AT_MOST:</span><br><span class="line">    case MeasureSpec.EXACTLY:</span><br><span class="line">      result = specSize;</span><br><span class="line">      break;</span><br><span class="line">  &#125;</span><br><span class="line">  return result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>由以上代码我们可以看到，View的getDefaultSize()方法对于AT_MOST和EXACTLY这两种情况都返回了SpecSize作为result。所以若我们的自定义View直接继承了View类，我们就要自己对wrap_content (对应了AT_MOST)这种情况进行处理，否则对自定义View指定wrap_content就和match_parent效果一样了。</p>
+<h1 id="layout阶段"><a href="#layout阶段" class="headerlink" title="layout阶段"></a>layout阶段</h1><p>layout阶段的基本思想也是由根View开始，递归地完成整个控件树的布局（layout）工作。</p>
+<h1 id="View-layout"><a href="#View-layout" class="headerlink" title="View.layout()"></a>View.layout()</h1><p>我们把对decorView的layout()方法的调用作为布局整个控件树的起点，实际上调用的是View类的layout()方法，源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">public void layout(int l, int t, int r, int b) &#123;</span><br><span class="line">    // l为本View左边缘与父View左边缘的距离</span><br><span class="line">    // t为本View上边缘与父View上边缘的距离</span><br><span class="line">    // r为本View右边缘与父View左边缘的距离</span><br><span class="line">    // b为本View下边缘与父View上边缘的距离</span><br><span class="line">    . . .</span><br><span class="line">    boolean changed = isLayoutModeOptical(mParent) ?            setOpticalFrame(l, t, r, b) : setFrame(l, t, r, b);</span><br><span class="line">    if (changed || (mPrivateFlags &amp; PFLAG_LAYOUT_REQUIRED) == PFLAG_LAYOUT_REQUIRED) &#123;</span><br><span class="line">        onLayout(changed, l, t, r, b);</span><br><span class="line">        . . .</span><br><span class="line">            </span><br><span class="line">    &#125;</span><br><span class="line">    . . .</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这个方法会调用setFrame()方法来设置View的mLeft、mTop、mRight和mBottom四个参数，这四个参数描述了View相对其父View的位置（分别赋值为l, t, r, b），在setFrame()方法中会判断View的位置是否发生了改变，若发生了改变，则需要对子View进行重新布局，对子View的局部是通过onLayout()方法实现了。由于普通View（ 非ViewGroup）不含子View，所以View类的onLayout()方法为空。因此接下来，我们看看ViewGroup类的onLayout()方法的实现。</p>
+<h1 id="ViewGroup-onLayout"><a href="#ViewGroup-onLayout" class="headerlink" title="ViewGroup.onLayout()"></a>ViewGroup.onLayout()</h1><p>实际上ViewGroup类的onLayout()方法是abstract，这是因为不同的布局管理器有着不同的布局方式。<br>这里我们以decorView，也就是FrameLayout的onLayout()方法为例，分析ViewGroup的布局过程：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">protected void onLayout(boolean changed, int left, int top, int right, int bottom) &#123;</span><br><span class="line">  layoutChildren(left, top, right, bottom, false /* no force left gravity */);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void layoutChildren(int left, int top, int right, int bottom, boolean forceLeftGravity) &#123;</span><br><span class="line">  final int count = getChildCount();</span><br><span class="line">  final int parentLeft = getPaddingLeftWithForeground();</span><br><span class="line">  final int parentRight = right - left - getPaddingRightWithForeground();</span><br><span class="line">  final int parentTop = getPaddingTopWithForeground();</span><br><span class="line">  final int parentBottom = bottom - top - getPaddingBottomWithForeground();</span><br><span class="line"></span><br><span class="line">  for (int i = 0; i &lt; count; i++) &#123;</span><br><span class="line">    final View child = getChildAt(i);</span><br><span class="line">    if (child.getVisibility() != GONE) &#123;</span><br><span class="line">      final LayoutParams lp = (LayoutParams) child.getLayoutParams();</span><br><span class="line">      final int width = child.getMeasuredWidth();</span><br><span class="line">      final int height = child.getMeasuredHeight();</span><br><span class="line">      int childLeft;</span><br><span class="line">      int childTop;</span><br><span class="line">      int gravity = lp.gravity;</span><br><span class="line"></span><br><span class="line">      if (gravity == -1) &#123;</span><br><span class="line">        gravity = DEFAULT_CHILD_GRAVITY;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      final int layoutDirection = getLayoutDirection();</span><br><span class="line">      final int absoluteGravity = Gravity.getAbsoluteGravity(gravity, layoutDirection);</span><br><span class="line">      final int verticalGravity = gravity &amp; Gravity.VERTICAL_GRAVITY_MASK;</span><br><span class="line"></span><br><span class="line">      switch (absoluteGravity &amp; Gravity.HORIZONTAL_GRAVITY_MASK) &#123;</span><br><span class="line">        case Gravity.CENTER_HORIZONTAL:</span><br><span class="line">          childLeft = parentLeft + (parentRight - parentLeft - width) / 2 +</span><br><span class="line">lp.leftMargin - lp.rightMargin;</span><br><span class="line">          break;</span><br><span class="line"></span><br><span class="line">        case Gravity.RIGHT:</span><br><span class="line">          if (!forceLeftGravity) &#123;</span><br><span class="line">            childLeft = parentRight - width - lp.rightMargin;</span><br><span class="line">            break;</span><br><span class="line">          &#125;</span><br><span class="line"></span><br><span class="line">        case Gravity.LEFT:</span><br><span class="line">        default:</span><br><span class="line">          childLeft = parentLeft + lp.leftMargin;</span><br><span class="line"></span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      switch (verticalGravity) &#123;</span><br><span class="line">        case Gravity.TOP:</span><br><span class="line">          childTop = parentTop + lp.topMargin;</span><br><span class="line">          break;</span><br><span class="line"></span><br><span class="line">        case Gravity.CENTER_VERTICAL:</span><br><span class="line">          childTop = parentTop + (parentBottom - parentTop - height) / 2 +</span><br><span class="line">lp.topMargin - lp.bottomMargin;</span><br><span class="line">          break;</span><br><span class="line"></span><br><span class="line">        case Gravity.BOTTOM:</span><br><span class="line">          childTop = parentBottom - height - lp.bottomMargin;</span><br><span class="line">          break;</span><br><span class="line"></span><br><span class="line">        default:</span><br><span class="line">          childTop = parentTop + lp.topMargin;</span><br><span class="line">      &#125;</span><br><span class="line">      child.layout(childLeft, childTop, childLeft + width, childTop + height);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>在上面的方法中，parentLeft表示当前View为其子View显示区域指定的一个左边界，也就是子View显示区域的左边缘到父View的左边缘的距离，parentRight、parentTop、parentBottom的含义同理。确定了子View的显示区域后，接下来，用一个for循环来完成子View的布局。<br>在确保子View的可见性不为GONE的情况下才会对其进行布局。首先会获取子View的LayoutParams、layoutDirection等一系列参数。上面代码中的childLeft代表了最终子View的左边缘距父View左边缘的距离，childTop代表了子View的上边缘距父View的上边缘的距离。会根据子View的layout_gravity的取值对childLeft和childTop做出不同的调整。最后会调用child.layout()方法对子View的位置参数进行设置，这时便转到了View.layout()方法的调用，若子View是容器View，则会递归地对其子View进行布局。</p>
+<p>到这里，layout阶段的大致流程我们就分析完了，这个阶段主要就是根据上一阶段得到的View的测量宽高来确定View的最终显示位置。显然，经过了measure阶段和layout阶段，我们已经确定好了View的大小和位置，那么接下来就可以开始绘制View了。</p>
+<h1 id="draw阶段"><a href="#draw阶段" class="headerlink" title="draw阶段"></a>draw阶段</h1><p>对于本阶段的分析，我们以decorView.draw()作为分析的起点，也就是View.draw()方法，它的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">public void draw(Canvas canvas) &#123;</span><br><span class="line">  . . . </span><br><span class="line">  // 绘制背景，只有dirtyOpaque为false时才进行绘制，下同</span><br><span class="line">  int saveCount;</span><br><span class="line">  if (!dirtyOpaque) &#123;</span><br><span class="line">    drawBackground(canvas);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  . . . </span><br><span class="line"></span><br><span class="line">  // 绘制自身内容</span><br><span class="line">  if (!dirtyOpaque) onDraw(canvas);</span><br><span class="line"></span><br><span class="line">  // 绘制子View</span><br><span class="line">  dispatchDraw(canvas);</span><br><span class="line"></span><br><span class="line">   . . .</span><br><span class="line">  // 绘制滚动条等</span><br><span class="line">  onDrawForeground(canvas);</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>简单起见，在上面的代码中我们省略了实现滑动时渐变边框效果相关的逻辑。实际上，View类的onDraw()方法为空，因为每个View绘制自身的方式都不尽相同，对于decorView来说，由于它是容器View，所以它本身并没有什么要绘制的。dispatchDraw()方法用于绘制子View，显然普通View（非ViewGroup）并不能包含子View，所以View类中这个方法的实现为空。</p>
+<p>ViewGroup类的dispatchDraw()方法中会依次调用drawChild()方法来绘制子View，drawChild()方法的源码如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">protected boolean drawChild(Canvas canvas, View child, long drawingTime) &#123;</span><br><span class="line">  return child.draw(canvas, this, drawingTime);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这个方法调用了View.draw(Canvas, ViewGroup，long)方法来对子View进行绘制。在draw(Canvas, ViewGroup, long)方法中，首先对canvas进行了一系列变换，以变换到将要被绘制的View的坐标系下。完成对canvas的变换后，便会调用View.draw(Canvas)方法进行实际的绘制工作，此时传入的canvas为经过变换的，在将被绘制View的坐标系下的canvas。</p>
+<p>进入到View.draw(Canvas)方法后，会向之前介绍的一样，执行以下几步：</p>
+<p>绘制背景;<br>通过onDraw()绘制自身内容;<br>通过dispatchDraw()绘制子View;<br>绘制滚动条</p>
+<p>总结<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">graph LR</span><br><span class="line">A--&gt;B</span><br><span class="line">B--&gt;C</span><br><span class="line">C--&gt;A</span><br></pre></td></tr></table></figure></p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/images/wechat_cg.jpg" alt="Chen Gang wechat" style="width: 200px; max-width: 100%;">
+  <div>扫一扫上面的二维码加我微信好友</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/03/01/Android的View相关/" rel="next" title="Android的View相关">
+                <i class="fa fa-chevron-left"></i> Android的View相关
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/03/08/Android的App一些优化方案/" rel="prev" title="Android的App一些优化方案">
+                Android的App一些优化方案 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="http://img2.imgtn.bdimg.com/it/u=3377302992,3361149372&fm=26&gp=0.jpg" alt="Chen Gang">
+            
+              <p class="site-author-name" itemprop="name">Chen Gang</p>
+              <p class="site-description motion-element" itemprop="description">I am g happy boy</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">24</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">6</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">3</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/cglw" title="GitHub &rarr; https://github.com/cglw" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Window"><span class="nav-number">1.</span> <span class="nav-text">Window</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#PhoneWindow"><span class="nav-number">2.</span> <span class="nav-text">PhoneWindow</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#从setContentView-说开去"><span class="nav-number">3.</span> <span class="nav-text">从setContentView()说开去</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#LayoutInflater-inflate"><span class="nav-number">4.</span> <span class="nav-text">LayoutInflater.inflate()</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ViewRootImpl"><span class="nav-number">5.</span> <span class="nav-text">ViewRootImpl</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#View绘制的起点"><span class="nav-number">6.</span> <span class="nav-text">View绘制的起点</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#三个阶段"><span class="nav-number">7.</span> <span class="nav-text">三个阶段</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#layout阶段"><span class="nav-number">8.</span> <span class="nav-text">layout阶段</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#View-layout"><span class="nav-number">9.</span> <span class="nav-text">View.layout()</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ViewGroup-onLayout"><span class="nav-number">10.</span> <span class="nav-text">ViewGroup.onLayout()</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#draw阶段"><span class="nav-number">11.</span> <span class="nav-text">draw阶段</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Chen Gang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">83k</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">1:16</span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-user"></i>
+    </span>
+    <span class="site-uv" title="总访客量">
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+    </span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+  
+
+  
+    <span class="post-meta-item-icon">
+      <i class="fa fa-eye"></i>
+    </span>
+    <span class="site-pv" title="总访问量">
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+    
+  
+  <script color="0,0,255" opacity="0.5" zindex="-1" count="99" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+
+
+
+
+
+  
+  
+
+
+
+  
+  
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/three/three.min.js"></script>
+
+  
+  <script src="/lib/three/canvas_lines.min.js"></script>
+
+  
+  <script src="/lib/three/canvas_sphere.min.js"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+<script src="//cdn1.lncld.net/static/js/3.11.1/av-min.js"></script>
+
+
+
+<script src="//unpkg.com/valine/dist/Valine.min.js"></script>
+
+<script>
+  var GUEST = ['nick', 'mail', 'link'];
+  var guest = 'nick,mail,link';
+  guest = guest.split(',').filter(function(item) {
+    return GUEST.indexOf(item) > -1;
+  });
+  new Valine({
+    el: '#comments',
+    verify: false,
+    notify: false,
+    appId: 'wwftA8SQrtrPWEtF8vAf8dXQ-gzGzoHsz',
+    appKey: '9sdgQsncNIwIV1bFqLkFVCrL',
+    placeholder: 'Just go go',
+    avatar: 'mm',
+    meta: guest,
+    pageSize: '10' || 10,
+    visitor: false
+  });
+</script>
+
+
+
+
+  
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

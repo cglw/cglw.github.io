@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[testblog]]></title>
+    <url>%2F2021%2F02%2F26%2Ftestblog%2F</url>
+    <content type="text"><![CDATA[test]]></content>
+  </entry>
+  <entry>
     <title><![CDATA[myblog]]></title>
     <url>%2F2021%2F02%2F26%2Fmyblog%2F</url>
     <content type="text"><![CDATA[BLOG]]></content>
